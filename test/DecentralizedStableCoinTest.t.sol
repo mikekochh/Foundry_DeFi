@@ -60,5 +60,12 @@ contract DecentralizedStableCoinTest is Test {
 
     // my understanding is that the holder of the coins must send the coins to the owner of the contract before they can be burned. Only the owner can burn tokens, so the owner is the only one
     // who can control the supply of coins. We must send tokens from USER to msg.sender, then burn tokens from there.
-    function testBurnTokensSuccessfully() public {}
+    function testBurnTokensSuccessfully() public mintCoin {
+        vm.prank(USER);
+        decentralizedStableCoin.transfer(msg.sender, INITIAL_COIN_AMOUNT);
+        vm.prank(msg.sender);
+        decentralizedStableCoin.burn(INITIAL_COIN_AMOUNT);
+        assertEq(decentralizedStableCoin.balanceOf(USER), 0);
+        assertEq(decentralizedStableCoin.balanceOf(msg.sender), 0);
+    }
 }
