@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";  //forge install smartcontractkit/chainlink-brownie-contracts@0.6.1 --no-commit
 
 /**
  * @title DSCEngine
@@ -35,6 +36,9 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////////////
     // State Variables    ///
     /////////////////////////
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 private constant PRECISION = 1e18;
+
     mapping(address token => address priceFeed) private s_priceFeeds;
     mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited;
     mapping(address user => uint256 amountDscMinted) private s_DSCMinted;
@@ -156,6 +160,16 @@ contract DSCEngine is ReentrancyGuard {
     // Public & External view Functions    ////
     ///////////////////////////////////////////
     function getAccountCollateralValue(address user) public view returns(uint256) {
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            address token = s_collateralTokens[i];
+            uint256 amount = s_collateralDeposited[user][token];
+            totalCollateralValueinUsd +=
+        }
+    }
 
+    function getUsdValue(address token, uint256 amount) public view returns(uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (,int256 price,,,) = priceFeed.latestRoundData();
+        return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION; // (1000 * 1e8 * (1e10)) * 1000 * 1e18;
     }
 }
