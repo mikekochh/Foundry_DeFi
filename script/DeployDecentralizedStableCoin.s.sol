@@ -10,7 +10,7 @@ contract DeployDecentralizedStableCoin is Script {
     address[] public tokenAddresses;
     address[] public priceFeedAddresses;
 
-    function run() external returns (DecentralizedStableCoin, DSCEngine) {
+    function run() external returns (DecentralizedStableCoin, DSCEngine, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
 
         (address wethUsdPriceFeed, address wbtcUsdPriceFeed, address weth, address wbtc, uint256 deployerKey) =
@@ -26,6 +26,6 @@ contract DeployDecentralizedStableCoin is Script {
         decentralizedStableCoin.transferOwnership(address(dscEngine)); // Engine needs to be owner of stablecoin so it can be the only one who can mint and burn
 
         vm.stopBroadcast();
-        return (decentralizedStableCoin, dscEngine);
+        return (decentralizedStableCoin, dscEngine, helperConfig);
     }
 }

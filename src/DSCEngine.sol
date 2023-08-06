@@ -93,7 +93,12 @@ contract DSCEngine is ReentrancyGuard {
     ////////////////////////////
     // External Functions    ///
     ////////////////////////////
-    function depositCollateralAndMintDsc() external {}
+
+    function depositCollateralAndMintDsc(
+        address tokenCollateralAddress,
+        uint256 amountCollateral,
+        uint256 amountDscToMint
+    ) external {}
 
     /**
      * @notice follows CEI
@@ -101,7 +106,7 @@ contract DSCEngine is ReentrancyGuard {
      * @param amountCollateral The amount of collateral to deposit
      */
     function depositCollateral(address tokenCollateralAddress, uint256 amountCollateral)
-        external
+        public
         moreThanZero(amountCollateral)
         isAllowedToken(tokenCollateralAddress)
         nonReentrant

@@ -5,6 +5,12 @@ import {Test} from "forge-std/Test.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {DeployDecentralizedStableCoin} from "../../script/DeployDecentralizedStableCoin.s.sol";
 
+/**
+ * @title Tests for Decentralized stable coin contract
+ * @author Michael Koch
+ * @notice These tests were written strictly by me, DSCEngineTest file is where tests from course will be written.
+ */
+
 contract DecentralizedStableCoinTest is Test {
     error DecentralizedStableCoin__MustBeMoreThanZero();
     error DecentralizedStableCoin__BurnAmountExceedsBalance();
@@ -25,7 +31,7 @@ contract DecentralizedStableCoinTest is Test {
 
     function setUp() public {
         deployer = new DeployDecentralizedStableCoin();
-        (decentralizedStableCoin,) = deployer.run();
+        (decentralizedStableCoin,,) = deployer.run();
     }
 
     function testRevertIfAddressIsZeroMinting() public {
