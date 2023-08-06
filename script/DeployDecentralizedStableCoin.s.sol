@@ -19,9 +19,12 @@ contract DeployDecentralizedStableCoin is Script {
         tokenAddresses = [weth, wbtc];
         priceFeedAddresses = [wethUsdPriceFeed, wbtcUsdPriceFeed];
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployerKey);
         DecentralizedStableCoin decentralizedStableCoin = new DecentralizedStableCoin();
         DSCEngine dscEngine = new DSCEngine(tokenAddresses, priceFeedAddresses, address(decentralizedStableCoin));
+
+        decentralizedStableCoin.transferOwnership(address(dscEngine)); // Engine needs to be owner of stablecoin so it can be the only one who can mint and burn
+
         vm.stopBroadcast();
         return (decentralizedStableCoin, dscEngine);
     }
