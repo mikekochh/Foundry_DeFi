@@ -2,8 +2,8 @@
 pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
-import {DecentralizedStableCoin} from "../src/DecentralizedStableCoin.sol";
-import {DeployDecentralizedStableCoin} from "../script/DeployDecentralizedStableCoin.s.sol";
+import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
+import {DeployDecentralizedStableCoin} from "../../script/DeployDecentralizedStableCoin.s.sol";
 
 contract DecentralizedStableCoinTest is Test {
     error DecentralizedStableCoin__MustBeMoreThanZero();
@@ -25,7 +25,7 @@ contract DecentralizedStableCoinTest is Test {
 
     function setUp() public {
         deployer = new DeployDecentralizedStableCoin();
-        decentralizedStableCoin = deployer.run();
+        (decentralizedStableCoin,) = deployer.run();
     }
 
     function testRevertIfAddressIsZeroMinting() public {
@@ -51,9 +51,7 @@ contract DecentralizedStableCoinTest is Test {
     }
 
     function testRevertIfBurnAmountExceedsBalanceBurning() public {
-        vm.expectRevert(
-            DecentralizedStableCoin__BurnAmountExceedsBalance.selector
-        );
+        vm.expectRevert(DecentralizedStableCoin__BurnAmountExceedsBalance.selector);
         vm.prank(msg.sender);
         decentralizedStableCoin.burn(1);
     }
