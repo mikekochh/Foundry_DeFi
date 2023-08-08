@@ -44,6 +44,7 @@ contract DSCEngine is ReentrancyGuard {
     uint256 private constant LIQUIDATION_THRESHOLD = 50; // 200% overcollateralized
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant MINIMUM_HEALTH_FACTOR = 1e18;
+    uint256 private constant LIQUIDATOR_BONUS = 10; // this means a 10% bonus
 
     mapping(address token => address priceFeed) private s_priceFeeds;
     mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited;
@@ -222,6 +223,14 @@ contract DSCEngine is ReentrancyGuard {
          * $100 of DSC == ??? ETH?
          */
         uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(collateral, debtsToCover);
+        // And give them a 10% bonus
+        // So we are giving the liquidator $110 of WETH for 100 DSC
+        // We should implement a feature to liquidate int he event the protocol is insolvent (bonus implementation)
+        // And sweep extra amounts into a treasury (bonus implementation)
+
+        // 0.05 * 0.1 = 0.005. Getting 0.055
+        uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATOR_BONUS) / LIQUIDATION_PRECISION;
+        uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
     }
 
     function getHealthFactor() external view {}
@@ -282,6 +291,11 @@ contract DSCEngine is ReentrancyGuard {
         // price of ETH (token)
         // $/ETH ETH ??
         // $2000 / ETH. $1000 = 0.5 ETH
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        // ($10e18 * 1e18) / ($2000e8 * 1e10)
+        // 0.005000000000000000
+        return (usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION);
     }
 
     function getAccountCollateralValue(address user) public view returns (uint256 totalCollateralValueinUsd) {
