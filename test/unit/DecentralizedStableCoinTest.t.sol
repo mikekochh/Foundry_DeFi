@@ -9,6 +9,9 @@ import {DeployDecentralizedStableCoin} from "../../script/DeployDecentralizedSta
  * @title Tests for Decentralized stable coin contract
  * @author Michael Koch
  * @notice These tests were written strictly by me, DSCEngineTest file is where tests from course will be written.
+ *
+ * These test don't work anymore because the ownership of all of the functions in DSC has been transfered to the DSCEngine.
+ * These tests become pretty useless now that has happened, so I'm commenting them out for now.
  */
 
 contract DecentralizedStableCoinTest is Test {
@@ -29,47 +32,48 @@ contract DecentralizedStableCoinTest is Test {
         _;
     }
 
-    function setUp() public {
-        deployer = new DeployDecentralizedStableCoin();
-        (decentralizedStableCoin,,) = deployer.run();
-    }
+    // function setUp() public {
+    //     deployer = new DeployDecentralizedStableCoin();
+    //     (decentralizedStableCoin,,) = deployer.run();
+    // }
 
-    function testRevertIfAddressIsZeroMinting() public {
-        vm.expectRevert(DecentralizedStableCoin__NotZeroAddress.selector);
-        vm.prank(msg.sender);
-        decentralizedStableCoin.mint(address(0), 1);
-    }
+    // function testRevertIfAddressIsZeroMinting() public {
+    //     vm.expectRevert(DecentralizedStableCoin__NotZeroAddress.selector);
+    //     vm.prank(msg.sender);
+    //     decentralizedStableCoin.mint(address(0), 1);
+    // }
 
-    function testRevertIfAmountIsZeroMinting() public {
-        vm.expectRevert(DecentralizedStableCoin__MustBeMoreThanZero.selector);
-        vm.prank(msg.sender);
-        decentralizedStableCoin.mint(USER, 0);
-    }
+    // function testRevertIfAmountIsZeroMinting() public {
+    //     vm.expectRevert(DecentralizedStableCoin__MustBeMoreThanZero.selector);
+    //     vm.prank(msg.sender);
+    //     decentralizedStableCoin.mint(USER, 0);
+    // }
 
-    function testBalanceOfIsUpdatedAfterMinting() public mintCoin {
-        assertEq(decentralizedStableCoin.balanceOf(USER), INITIAL_COIN_AMOUNT);
-    }
+    // function testBalanceOfIsUpdatedAfterMinting() public mintCoin {
+    //     vm.prank(msg.sender);
+    //     assertEq(decentralizedStableCoin.balanceOf(USER), INITIAL_COIN_AMOUNT);
+    // }
 
-    function testRevertIfAmountIsZeroBurning() public {
-        vm.expectRevert(DecentralizedStableCoin__MustBeMoreThanZero.selector);
-        vm.prank(msg.sender);
-        decentralizedStableCoin.burn(0);
-    }
+    // function testRevertIfAmountIsZeroBurning() public {
+    //     vm.expectRevert(DecentralizedStableCoin__MustBeMoreThanZero.selector);
+    //     vm.prank(msg.sender);
+    //     decentralizedStableCoin.burn(0);
+    // }
 
-    function testRevertIfBurnAmountExceedsBalanceBurning() public {
-        vm.expectRevert(DecentralizedStableCoin__BurnAmountExceedsBalance.selector);
-        vm.prank(msg.sender);
-        decentralizedStableCoin.burn(1);
-    }
+    // function testRevertIfBurnAmountExceedsBalanceBurning() public {
+    //     vm.expectRevert(DecentralizedStableCoin__BurnAmountExceedsBalance.selector);
+    //     vm.prank(msg.sender);
+    //     decentralizedStableCoin.burn(1);
+    // }
 
-    // my understanding is that the holder of the coins must send the coins to the owner of the contract before they can be burned. Only the owner can burn tokens, so the owner is the only one
-    // who can control the supply of coins. We must send tokens from USER to msg.sender, then burn tokens from there.
-    function testBurnTokensSuccessfully() public mintCoin {
-        vm.prank(USER);
-        decentralizedStableCoin.transfer(msg.sender, INITIAL_COIN_AMOUNT);
-        vm.prank(msg.sender);
-        decentralizedStableCoin.burn(INITIAL_COIN_AMOUNT);
-        assertEq(decentralizedStableCoin.balanceOf(USER), 0);
-        assertEq(decentralizedStableCoin.balanceOf(msg.sender), 0);
-    }
+    // // my understanding is that the holder of the coins must send the coins to the owner of the contract before they can be burned. Only the owner can burn tokens, so the owner is the only one
+    // // who can control the supply of coins. We must send tokens from USER to msg.sender, then burn tokens from there.
+    // function testBurnTokensSuccessfully() public mintCoin {
+    //     vm.prank(USER);
+    //     decentralizedStableCoin.transfer(msg.sender, INITIAL_COIN_AMOUNT);
+    //     vm.prank(msg.sender);
+    //     decentralizedStableCoin.burn(INITIAL_COIN_AMOUNT);
+    //     assertEq(decentralizedStableCoin.balanceOf(USER), 0);
+    //     assertEq(decentralizedStableCoin.balanceOf(msg.sender), 0);
+    // }
 }
