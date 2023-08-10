@@ -249,7 +249,7 @@ contract DSCEngine is ReentrancyGuard {
             revert DSCEngine__TransferFailed();
         }
         i_dsc.burn(amountDscToBurn);
-        _revertIfHealthFactorIsBroken(msg.sender); //Not sure if this is needed...
+        _revertIfHealthFactorIsBroken(dscFrom); //Not sure if this is needed...
     }
 
     function _redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral, address from, address to)

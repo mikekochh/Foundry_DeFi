@@ -18,8 +18,11 @@ contract DSCEngineTest is Test {
     address weth;
 
     address public USER = makeAddr("user");
-    uint256 public constant AMOUNT_COLLATERAL = 10 ether;
-    uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
+    address public USER_LIQUIDATE = makeAddr("user2");
+    uint256 public constant AMOUNT_COLLATERAL = 5 ether; // which is really $10k, since ETH is at $2k
+    uint256 public constant STARTING_ERC20_BALANCE = 5 ether;
+    uint256 public constant AMOUNT_DSC = 1000 ether; // while this is actually $1k
+    uint256 public constant AMOUNT_COLLATERAL_BAD = 0.1 ether;
 
     modifier mintUserWeth() {
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
@@ -30,6 +33,22 @@ contract DSCEngineTest is Test {
         vm.startPrank(USER);
         ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
         dsce.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
+        _;
+    }
+
+    modifier depositCollateralAndMintDscBadHealth() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL_BAD);
+        dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL_BAD, AMOUNT_DSC);
+        vm.stopPrank();
+        _;
+    }
+
+    modifier depositCollateralAndMintDsc() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
+        dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, AMOUNT_DSC);
         vm.stopPrank();
         _;
     }
@@ -111,13 +130,31 @@ contract DSCEngineTest is Test {
     // write a function for testing if user has zero minted DSC, to throw a revert error saying cannot divide by zero
     function testRevertIfUserHasZeroDscAndTriesToGetHealthFactor() public mintUserWeth depositedCollateral {
         vm.expectRevert(DSCEngine.DSCEngine__HealthFactorUnavailableWithoutDSC.selector);
-        uint256 healthFactor = dsce.getHealthFactor(USER);
+        dsce.getHealthFactor(USER);
     }
 
     // write a function for testing if health factor function is returning correct health factor
-    // we probably need to refactor code so that if there is zero DSC in account, we do not get a divide by zero error
-    function testGetHealthFactor() public mintUserWeth depositedCollateral {
+    function testGetHealthFactor() public mintUserWeth depositCollateralAndMintDsc {
+        uint256 expectedHealthFactor = 5e18;
+        uint256 acutalHealthFactor = dsce.getHealthFactor(USER);
         console.log("Health factor: ", dsce.getHealthFactor(USER));
-        // uint256 healthFactor = dsce.getHealthFactor(USER);
+        assertEq(expectedHealthFactor, acutalHealthFactor);
+    }
+
+    // write a function for testing if updating position makes health factor too low, then revert transaction
+
+    // write a function where if someone's health factor is fine and someone tries to liquidate them, expect revert
+    function testLiquidateHealthFactorOK() public mintUserWeth depositCollateralAndMintDsc {
+        vm.startPrank(USER_LIQUIDATE);
+        vm.expectRevert(DSCEngine.DSCEngine__HealthFactorOK.selector);
+        dsce.liquidate(ethUsdPriceFeed, USER, AMOUNT_COLLATERAL);
+        vm.stopPrank();
+    }
+
+    // write a function where if someone's health factor is too low, then have the ability to liquidate them
+    function testLiquidate() public mintUserWeth depositCollateralAndMintDscBadHealth {
+        vm.startPrank(USER_LIQUIDATE);
+        dsce.liquidate(ethUsdPriceFeed, USER, AMOUNT_COLLATERAL_BAD);
+        vm.stopPrank();
     }
 }
