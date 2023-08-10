@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DeployDecentralizedStableCoin} from "../../script/DeployDecentralizedStableCoin.s.sol";
@@ -9,8 +9,6 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
 
 contract DSCEngineTest is Test {
-    error DSCEngine__NeedsMoreThanZero();
-
     DeployDecentralizedStableCoin deployer = new DeployDecentralizedStableCoin();
     DecentralizedStableCoin dsc;
     DSCEngine dsce;
@@ -25,6 +23,14 @@ contract DSCEngineTest is Test {
 
     modifier mintUserWeth() {
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
+        _;
+    }
+
+    modifier depositedCollateral() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
+        dsce.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
         _;
     }
 
@@ -82,14 +88,6 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
     }
 
-    modifier depositedCollateral() {
-        vm.startPrank(USER);
-        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
-        dsce.depositCollateral(weth, AMOUNT_COLLATERAL);
-        vm.stopPrank();
-        _;
-    }
-
     function testRevertsWithUnapprovedCollateral() public {
         ERC20Mock ranToken = new ERC20Mock("RAN", "RAN", USER, AMOUNT_COLLATERAL);
         vm.startPrank(USER);
@@ -98,6 +96,7 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
     }
 
+    // write a function that gets the account information of the USER
     function testCanDepositCollateralAndGetAccountInfo() public mintUserWeth depositedCollateral {
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = dsce.getAccountInformation(USER);
 
@@ -105,5 +104,20 @@ contract DSCEngineTest is Test {
         uint256 expectedDepositAmount = dsce.getTokenAmountFromUsd(weth, collateralValueInUsd);
         assertEq(totalDscMinted, expectedTotalDscMinted);
         assertEq(AMOUNT_COLLATERAL, expectedDepositAmount);
+    }
+
+    // write a function for testing if revert function for health factor is working correctly
+
+    // write a function for testing if user has zero minted DSC, to throw a revert error saying cannot divide by zero
+    function testRevertIfUserHasZeroDscAndTriesToGetHealthFactor() public mintUserWeth depositedCollateral {
+        vm.expectRevert(DSCEngine.DSCEngine__HealthFactorUnavailableWithoutDSC.selector);
+        uint256 healthFactor = dsce.getHealthFactor(USER);
+    }
+
+    // write a function for testing if health factor function is returning correct health factor
+    // we probably need to refactor code so that if there is zero DSC in account, we do not get a divide by zero error
+    function testGetHealthFactor() public mintUserWeth depositedCollateral {
+        console.log("Health factor: ", dsce.getHealthFactor(USER));
+        // uint256 healthFactor = dsce.getHealthFactor(USER);
     }
 }
