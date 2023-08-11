@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import {console} from "forge-std/Test.sol";
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -160,7 +161,6 @@ contract DSCEngine is ReentrancyGuard {
         nonReentrant
     {
         _redeemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
-
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
@@ -181,7 +181,7 @@ contract DSCEngine is ReentrancyGuard {
     // this is so if users believe that they have too much stablecoin and not enough collateral, they can burn some themselves to even it out
     function burnDsc(uint256 amount) public moreThanZero(amount) {
         _burnDsc(amount, msg.sender, msg.sender);
-        _revertIfHealthFactorIsBroken(msg.sender); //Not sure if this is needed...
+        _revertIfHealthFactorIsBroken(msg.sender);
     }
 
     // If someone is almost undercollateralized, we will pay you to liquidate them
@@ -249,7 +249,6 @@ contract DSCEngine is ReentrancyGuard {
             revert DSCEngine__TransferFailed();
         }
         i_dsc.burn(amountDscToBurn);
-        _revertIfHealthFactorIsBroken(dscFrom); //Not sure if this is needed...
     }
 
     function _redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral, address from, address to)
@@ -305,6 +304,7 @@ contract DSCEngine is ReentrancyGuard {
      */
     function _revertIfHealthFactorIsBroken(address user) internal view {
         uint256 userHealthFactor = _healthFactor(user);
+
         if (userHealthFactor < MINIMUM_HEALTH_FACTOR) {
             revert DSCEngine__BreaksHealthFactor(userHealthFactor);
         }
@@ -354,5 +354,11 @@ contract DSCEngine is ReentrancyGuard {
 
     function getHealthFactor(address user) external view returns (uint256) {
         return _healthFactor(user);
+    }
+
+    function updateCollateralPositionForTestingPurposesOnly(address user, address token, uint256 newCollateralAmount)
+        external
+    {
+        s_collateralDeposited[user][token] = newCollateralAmount;
     }
 }

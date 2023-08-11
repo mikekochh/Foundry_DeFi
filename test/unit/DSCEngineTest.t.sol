@@ -7,8 +7,11 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DeployDecentralizedStableCoin} from "../../script/DeployDecentralizedStableCoin.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract DSCEngineTest is Test {
+    error DSCEngine__BreaksHealthFactor(uint256);
+
     DeployDecentralizedStableCoin deployer = new DeployDecentralizedStableCoin();
     DecentralizedStableCoin dsc;
     DSCEngine dsce;
@@ -20,9 +23,12 @@ contract DSCEngineTest is Test {
     address public USER = makeAddr("user");
     address public USER_LIQUIDATE = makeAddr("user2");
     uint256 public constant AMOUNT_COLLATERAL = 5 ether; // which is really $10k, since ETH is at $2k
+    uint256 public constant AMOUNT_COLLATERAL_TO_REDEEM = 1 ether;
     uint256 public constant STARTING_ERC20_BALANCE = 5 ether;
     uint256 public constant AMOUNT_DSC = 1000 ether; // while this is actually $1k
+    uint256 public constant AMOUNT_DSC_TO_BURN = 500 ether;
     uint256 public constant AMOUNT_COLLATERAL_BAD = 0.1 ether;
+    uint256 public constant BROKEN_HEALTH_FACTOR = 100000000000000000; // 100,000,000,000,000,000
 
     modifier mintUserWeth() {
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
@@ -37,20 +43,29 @@ contract DSCEngineTest is Test {
         _;
     }
 
-    modifier depositCollateralAndMintDscBadHealth() {
-        vm.startPrank(USER);
-        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL_BAD);
-        dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL_BAD, AMOUNT_DSC);
-        vm.stopPrank();
+    modifier depositCollateralAndMintDsc() {
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
+        dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, AMOUNT_DSC);
         _;
     }
 
-    modifier depositCollateralAndMintDsc() {
+    modifier depositCollateralAndMintDscCustomPrank() {
         vm.startPrank(USER);
         ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
         dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, AMOUNT_DSC);
         vm.stopPrank();
         _;
+    }
+
+    modifier updateCollateralPositionToBeBad() {
+        dsce.updateCollateralPositionForTestingPurposesOnly(USER, weth, AMOUNT_COLLATERAL_BAD);
+        _;
+    }
+
+    modifier prankUser() {
+        vm.startPrank(USER);
+        _;
+        vm.stopPrank();
     }
 
     function setUp() public {
@@ -98,21 +113,16 @@ contract DSCEngineTest is Test {
     // depositCollateral Tests //////
     /////////////////////////////////
 
-    function testRevertsIfCollateralZero() public mintUserWeth {
-        vm.startPrank(USER);
+    function testRevertsIfCollateralZero() public prankUser mintUserWeth {
         ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
-
         vm.expectRevert(DSCEngine.DSCEngine__NeedsMoreThanZero.selector);
         dsce.depositCollateral(weth, 0);
-        vm.stopPrank();
     }
 
-    function testRevertsWithUnapprovedCollateral() public {
+    function testRevertsWithUnapprovedCollateral() public prankUser {
         ERC20Mock ranToken = new ERC20Mock("RAN", "RAN", USER, AMOUNT_COLLATERAL);
-        vm.startPrank(USER);
         vm.expectRevert(DSCEngine.DSCEngine__NotAllowedToken.selector);
         dsce.depositCollateral(address(ranToken), AMOUNT_COLLATERAL);
-        vm.stopPrank();
     }
 
     // write a function that gets the account information of the USER
@@ -126,6 +136,18 @@ contract DSCEngineTest is Test {
     }
 
     // write a function for testing if revert function for health factor is working correctly
+    function testRevertIfHealthFactorIsBroken()
+        public
+        prankUser
+        mintUserWeth
+        depositCollateralAndMintDsc
+        updateCollateralPositionToBeBad
+    {
+        vm.expectRevert(
+            abi.encodePacked(abi.encodeWithSelector(DSCEngine__BreaksHealthFactor.selector, BROKEN_HEALTH_FACTOR))
+        );
+        dsce.revertIfHealthFactorIsBroken(USER);
+    }
 
     // write a function for testing if user has zero minted DSC, to throw a revert error saying cannot divide by zero
     function testRevertIfUserHasZeroDscAndTriesToGetHealthFactor() public mintUserWeth depositedCollateral {
@@ -134,27 +156,60 @@ contract DSCEngineTest is Test {
     }
 
     // write a function for testing if health factor function is returning correct health factor
-    function testGetHealthFactor() public mintUserWeth depositCollateralAndMintDsc {
+    function testGetHealthFactor() public prankUser mintUserWeth depositCollateralAndMintDsc {
         uint256 expectedHealthFactor = 5e18;
         uint256 acutalHealthFactor = dsce.getHealthFactor(USER);
-        console.log("Health factor: ", dsce.getHealthFactor(USER));
         assertEq(expectedHealthFactor, acutalHealthFactor);
     }
 
     // write a function for testing if updating position makes health factor too low, then revert transaction
 
     // write a function where if someone's health factor is fine and someone tries to liquidate them, expect revert
-    function testLiquidateHealthFactorOK() public mintUserWeth depositCollateralAndMintDsc {
-        vm.startPrank(USER_LIQUIDATE);
+    function testLiquidateHealthFactorOK() public mintUserWeth depositCollateralAndMintDscCustomPrank {
+        vm.prank(USER_LIQUIDATE);
         vm.expectRevert(DSCEngine.DSCEngine__HealthFactorOK.selector);
         dsce.liquidate(ethUsdPriceFeed, USER, AMOUNT_COLLATERAL);
-        vm.stopPrank();
     }
 
-    // write a function where if someone's health factor is too low, then have the ability to liquidate them
-    function testLiquidate() public mintUserWeth depositCollateralAndMintDscBadHealth {
+    // write a function testing the burn
+
+    // // write a function where if someone's health factor is too low, then have the ability to liquidate them
+    function testLiquidate()
+        public
+        mintUserWeth
+        depositCollateralAndMintDscCustomPrank
+        updateCollateralPositionToBeBad
+    {
         vm.startPrank(USER_LIQUIDATE);
         dsce.liquidate(ethUsdPriceFeed, USER, AMOUNT_COLLATERAL_BAD);
         vm.stopPrank();
     }
+
+    // function for getAccountCollateralValue
+    function testGetAccountCollateralValue() public prankUser mintUserWeth depositCollateralAndMintDsc {
+        uint256 actualAccountCollateralValue = dsce.getAccountCollateralValue(USER);
+        assertEq(actualAccountCollateralValue, dsce.getUsdValue(weth, AMOUNT_COLLATERAL));
+    }
+
+    function testGetAccountInformation() public prankUser mintUserWeth depositCollateralAndMintDsc {
+        (uint256 actualTotalDscMinted, uint256 actualCollateralValueInUsd) = dsce.getAccountInformation(USER);
+        uint256 expectedTotalDscMinted = AMOUNT_DSC;
+        uint256 expectedCollateralValueInUsd = dsce.getUsdValue(weth, AMOUNT_COLLATERAL);
+        assertEq(actualTotalDscMinted, expectedTotalDscMinted);
+        assertEq(actualCollateralValueInUsd, expectedCollateralValueInUsd);
+    }
+
+    // function for testing if redeem collateral is working correctly
+    // function testRedeemCollateral() public mintUserWeth depositCollateralAndMintDsc {
+    //     vm.startPrank(USER);
+    //     dsce.redeemCollateral(weth, AMOUNT_COLLATERAL);
+    //     vm.stopPrank();
+    // }
+
+    function testRedeemCollateralForDsc() public prankUser mintUserWeth depositCollateralAndMintDsc {
+        dsc.approve(address(dsce), AMOUNT_DSC);
+        dsce.redeemCollateralForDsc(weth, AMOUNT_COLLATERAL_TO_REDEEM, AMOUNT_DSC_TO_BURN);
+    }
+
+    function testRedeemCollateralForDscExpectRevert() public prankUser mintUserWeth depositCollateralAndMintDsc {}
 }
