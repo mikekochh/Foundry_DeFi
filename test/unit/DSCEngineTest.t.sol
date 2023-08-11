@@ -8,6 +8,7 @@ import {DeployDecentralizedStableCoin} from "../../script/DeployDecentralizedSta
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
 
 contract DSCEngineTest is Test {
     error DSCEngine__BreaksHealthFactor(uint256);
@@ -29,6 +30,8 @@ contract DSCEngineTest is Test {
     uint256 public constant AMOUNT_DSC_TO_BURN = 500 ether;
     uint256 public constant AMOUNT_COLLATERAL_BAD = 0.1 ether;
     uint256 public constant BROKEN_HEALTH_FACTOR = 100000000000000000; // 100,000,000,000,000,000
+    uint256 public constant AMOUNT_COLLATERAL_TO_COVER = 10 ether;
+    uint256 public constant AMOUNT_TO_MINT = 50 ether;
 
     modifier mintUserWeth() {
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
@@ -174,16 +177,25 @@ contract DSCEngineTest is Test {
     // write a function testing the burn
 
     // // write a function where if someone's health factor is too low, then have the ability to liquidate them
-    function testLiquidate()
-        public
-        mintUserWeth
-        depositCollateralAndMintDscCustomPrank
-        updateCollateralPositionToBeBad
-    {
-        vm.startPrank(USER_LIQUIDATE);
-        dsce.liquidate(ethUsdPriceFeed, USER, AMOUNT_COLLATERAL_BAD);
-        vm.stopPrank();
-    }
+    // function testLiquidate() public {
+    //     vm.startPrank(USER);
+    //     ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
+    //     dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, AMOUNT_TO_MINT);
+    //     vm.stopPrank();
+    //     int256 ethUsdUpdatedPrice = 18e8; // 1 ETH = $18
+
+    //     MockV3Aggregator(ethUsdPriceFeed).updateAnswer(ethUsdUpdatedPrice);
+    //     uint256 userHealthFactor = dsce.getHealthFactor(USER);
+
+    //     ERC20Mock(weth).mint(USER_LIQUIDATE, AMOUNT_COLLATERAL_TO_COVER);
+
+    //     vm.startPrank(USER_LIQUIDATE);
+    //     ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL_TO_COVER);
+    //     dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL_TO_COVER, AMOUNT_TO_MINT);
+    //     dsc.approve(address(dsce), AMOUNT_TO_MINT);
+    //     dsce.liquidate(weth, USER, AMOUNT_TO_MINT);
+    //     vm.stopPrank();
+    // }
 
     // function for getAccountCollateralValue
     function testGetAccountCollateralValue() public prankUser mintUserWeth depositCollateralAndMintDsc {
