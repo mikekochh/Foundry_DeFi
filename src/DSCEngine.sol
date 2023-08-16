@@ -6,6 +6,7 @@ import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol"; //forge install smartcontractkit/chainlink-brownie-contracts@0.6.1 --no-commit
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 /**
  * @title DSCEngine
@@ -38,6 +39,11 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__HealthFactorOK();
     error DSCEngine__HealthFactorNotImproved();
     error DSCEngine__HealthFactorUnavailableWithoutDSC();
+
+    ////////////////////////
+    // Types            ////
+    ////////////////////////
+    using OracleLib for AggregatorV3Interface;
 
     /////////////////////////
     // State Variables    ///
@@ -319,7 +325,7 @@ contract DSCEngine is ReentrancyGuard {
         // $/ETH ETH ??
         // $2000 / ETH. $1000 = 0.5 ETH
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
         // ($10e18 * 1e18) / ($2000e8 * 1e10)
         // 0.005000000000000000
         return (usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION);
@@ -336,7 +342,7 @@ contract DSCEngine is ReentrancyGuard {
 
     function getUsdValue(address token, uint256 amount) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION; // (1000 * 1e8 * (1e10)) * 1000 * 1e18;
     }
 
@@ -352,21 +358,49 @@ contract DSCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(user);
     }
 
-    function getHealthFactor(address user) external view returns (uint256) {
-        return _healthFactor(user);
-    }
-
     function updateCollateralPositionForTestingPurposesOnly(address user, address token, uint256 newCollateralAmount)
         external
     {
         s_collateralDeposited[user][token] = newCollateralAmount;
     }
 
+    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+
+    function getPrecision() external pure returns (uint256) {
+        return PRECISION;
+    }
+
+    function getAdditionalFeedPrecision() external pure returns (uint256) {
+        return ADDITIONAL_FEED_PRECISION;
+    }
+
+    function getLiquidationThreshold() external pure returns (uint256) {
+        return LIQUIDATION_THRESHOLD;
+    }
+
+    // function getLiquidationBonus() external pure returns (uint256) {
+    //     return LIQUIDATION_BONUS;
+    // }
+
+    // function getMinHealthFactor() external pure returns (uint256) {
+    //     return MIN_HEALTH_FACTOR;
+    // }
+
     function getCollateralTokens() external view returns (address[] memory) {
         return s_collateralTokens;
     }
 
-    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
-        return s_collateralDeposited[user][token];
+    function getDsc() external view returns (address) {
+        return address(i_dsc);
+    }
+
+    function getCollateralTokenPriceFeed(address token) external view returns (address) {
+        return s_priceFeeds[token];
+    }
+
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _healthFactor(user);
     }
 }

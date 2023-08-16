@@ -22,6 +22,7 @@ import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Handler} from "./Handler.t.sol";
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
 
 contract Invariants is StdInvariant, Test {
     DeployDecentralizedStableCoin deployer;
@@ -56,5 +57,11 @@ contract Invariants is StdInvariant, Test {
         console.log("Times mint called: ", handler.timesMintIsCalled());
 
         assert(wethValue + wbtcValue >= totalSupply); // needs to be greater than or equal because if there is nothing in the engine, then total collateral and supply will be the same
+    }
+
+    // it is always good practice to have a function like this that tests to make sure that all get functions do not revert.
+    // this is to make sure we are not breaking our invariant tests
+    function invariant_gettersShouldNotRevert() public view {
+        dsce.getCollateralTokens();
     }
 }
