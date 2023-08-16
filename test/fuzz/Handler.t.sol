@@ -16,6 +16,7 @@ contract Handler is Test {
     ERC20Mock wbtc;
 
     uint256 public timesMintIsCalled;
+    address[] public usersWithCollateralDeposited;
 
     uint256 MAX_DEPOSIT_SIZE = type(uint96).max;
 
@@ -38,6 +39,8 @@ contract Handler is Test {
         collateral.approve(address(dsce), amountCollateral);
         dsce.depositCollateral(address(collateral), amountCollateral);
         vm.stopPrank();
+        // double push, we could accidentaly push the same address twice
+        usersWithCollateralDeposited.push(msg.sender);
     }
 
     function redeemCollateral(uint256 collateralSeed, uint256 amountCollateral) public {
@@ -50,29 +53,25 @@ contract Handler is Test {
         dsce.redeemCollateral(address(collateral), amountCollateral);
     }
 
-    function mintDsc(uint256 amountMint, uint256 collateralSeed, uint256 amountCollateral) public {
-        amountCollateral = bound(amountCollateral, 1, MAX_DEPOSIT_SIZE);
-        if (amountMint > amountCollateral * 2) {
+    function mintDsc(uint256 amountMint, uint256 addressSeed) public {
+        if (usersWithCollateralDeposited.length == 0) {
             return;
         }
-        depositCollateral(collateralSeed, amountCollateral);
-        (uint256 totalDscMinted, uint256 collateralValueInUsd) = dsce.getAccountInformation(msg.sender);
+        address sender = usersWithCollateralDeposited[addressSeed % usersWithCollateralDeposited.length];
+        (uint256 totalDscMinted, uint256 collateralValueInUsd) = dsce.getAccountInformation(sender);
 
         int256 maxDscToMint = (int256(collateralValueInUsd) / 2) - int256(totalDscMinted);
-        console.log("collateralValueInUsd: ", collateralValueInUsd);
-        console.log("totalDscMinted: ", totalDscMinted);
-        console.log("maxDscToMint: ", uint256(maxDscToMint));
-        if (maxDscToMint <= 0) {
+        if (maxDscToMint < 0) {
             return;
         }
         amountMint = bound(amountMint, 0, uint256(maxDscToMint));
         if (amountMint == 0) {
             return;
         }
-        timesMintIsCalled++;
-        vm.startPrank(msg.sender);
+        vm.startPrank(sender);
         dsce.mintDsc(amountMint);
         vm.stopPrank();
+        timesMintIsCalled++;
     }
 
     // Helper Functions
